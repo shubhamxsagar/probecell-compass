@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'CreditSea Connect',
+      title: 'Probcell Solutions',
       initialRoute: RoutesPages.initial,
       getPages: RoutesPages.routes,
       // initialBinding: NetworkBinding(),
