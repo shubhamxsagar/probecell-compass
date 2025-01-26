@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:probcell_solutions/core/constants/color_constant.dart';
 import 'package:probcell_solutions/core/constants/local_string.dart';
 import 'package:probcell_solutions/core/services/api_client.dart';
 import 'package:probcell_solutions/core/services/shared_pref_service.dart';
@@ -25,21 +27,29 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(
-      title: 'Probcell Solutions',
-      initialRoute: RoutesPages.initial,
-      getPages: RoutesPages.routes,
-      // initialBinding: NetworkBinding(),
-      debugShowCheckedModeBanner: false,
-      translations: LocaleString(),
-      theme: ThemeData(
-          canvasColor: Colors.transparent,
-          primarySwatch: Colors.blue,
-          useMaterial3: true,
-          textSelectionTheme: const TextSelectionThemeData(
-            selectionColor: Colors.yellow,
-            selectionHandleColor: Colors.transparent,
-          )),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: ColorConstants.white,
+        statusBarColor: ColorConstants.white,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+      child: GetMaterialApp(
+        title: 'Probcell Solutions',
+        initialRoute: RoutesPages.initial,
+        getPages: RoutesPages.routes,
+        // initialBinding: NetworkBinding(),
+        debugShowCheckedModeBanner: false,
+        translations: LocaleString(),
+        theme: ThemeData(
+            canvasColor: Colors.transparent,
+            primarySwatch: Colors.blue,
+            useMaterial3: true,
+            textSelectionTheme: const TextSelectionThemeData(
+              selectionColor: Colors.yellow,
+              selectionHandleColor: Colors.transparent,
+            )),
+      ),
     );
   }
 }
