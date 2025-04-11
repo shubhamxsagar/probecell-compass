@@ -12,118 +12,293 @@ class ServiceScreen extends GetView<ServiceController> {
   @override
   Widget build(BuildContext context) {
     ScalingUtility scale = ScalingUtility(context: context)..setCurrentDeviceSize();
-    return Padding(
-      padding: scale.getPadding(horizontal: 20, vertical: 10),
-      child: Column(
-        children: [
-          AppBar(
-            surfaceTintColor: ColorConstants.white,
-              title: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'PROBECELL COMPASS',
-                  style: AppStyle.textStylepoppins600blackLight20,
+    return Scaffold(
+      backgroundColor: ColorConstants.white,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: scale.getScaledHeight(180),
+            floating: false,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              centerTitle: true,
+              title: Text(
+                'OUR SERVICES',
+                style: AppStyle.textStylepoppins600white16.copyWith(
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: Offset(1, 1),
+                    ),
+                  ],
                 ),
               ),
-              leadingWidth: scale.getScaledWidth(60),
-              leading: Image.asset(ImageConstant.logo),
-              backgroundColor: ColorConstants.white,
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      ColorConstants.primaryColor,
+                      ColorConstants.secondaryColor,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Center(
+                  child: Image.asset(
+                    ImageConstant.logo,
+                    width: scale.getScaledWidth(80),
+                    height: scale.getScaledHeight(80),
+                  ),
+                ),
+              ),
             ),
-          Expanded(
-            child: ListView.builder(
-              shrinkWrap: true,
-              // padding: EdgeInsets.all(16),
-              itemCount: controller.services.length,
-              itemBuilder: (context, index) {
-                final service = controller.services[index];
-                  
-                return Obx(() {
-                  final isExpanded = controller.expandedIndex.value == index;
-                  
-                  return Card(
-                    color: Colors.white,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+            elevation: 10,
+            backgroundColor: ColorConstants.primaryColor, // Add this line
+            stretch: true, // Optional: makes the background stretch when overscrolled
+          ),
+          // SliverToBoxAdapter(
+          //   child: Padding(
+          //     padding: scale.getPadding(horizontal: 20, top: 20),
+          //     child: Text(
+          //       'Professional Services for Your Research Needs',
+          //       style: AppStyle.textStylepoppins600black16.copyWith(
+          //         fontSize: 18,
+          //         color: ColorConstants.primaryColor,
+          //       ),
+          //     ),
+          //   ),
+          // ),
+          SliverPadding(
+              padding: scale.getPadding(all: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final service = controller.services[index];
+                    return _buildServiceCard(scale, service, index);
+                  },
+                  childCount: controller.services.length,
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceCard(ScalingUtility scale, Map<String, dynamic> service, int index) {
+    return Obx(() {
+      final isExpanded = controller.expandedIndex.value == index;
+      return Padding(
+        padding: scale.getPadding(vertical: 8),
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: isExpanded
+                  ? [
+                      ColorConstants.primaryColor.withOpacity(0.1),
+                      ColorConstants.secondaryColor.withOpacity(0.05),
+                    ]
+                  : [
+                      Colors.white,
+                      Colors.white,
+                    ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Theme(
+            data: Theme.of(Get.context!).copyWith(
+              dividerColor: Colors.transparent,
+            ),
+            child: ExpansionTile(
+              onExpansionChanged: (expanded) {
+                controller.toggleExpansion(index);
+                if (expanded) {
+                  // Haptic feedback when expanding
+                  Feedback.forTap(Get.context!);
+                }
+              },
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              collapsedShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              tilePadding: scale.getPadding(horizontal: 16, vertical: 8),
+              title: Row(
+                children: [
+                  // Number indicator circle
+                  Container(
+                    width: scale.getScaledWidth(28),
+                    height: scale.getScaledHeight(28),
+                    decoration: BoxDecoration(
+                      color: isExpanded ? ColorConstants.primaryColor : Colors.grey[300],
+                      shape: BoxShape.circle,
                     ),
-                    margin: EdgeInsets.symmetric(vertical: 8),
-                    child: ExpansionTile(
-                      tilePadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      title: Text(
-                        service['title'] as String,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: ColorConstants.secondaryColor,
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: AppStyle.textStylepoppins600black16.copyWith(
+                          color: isExpanded ? Colors.white : Colors.black,
+                          fontSize: 14,
                         ),
                       ),
-                      trailing: Icon(
-                        isExpanded ? Icons.expand_less : Icons.expand_more,
-                        color: ColorConstants.secondaryColor,
-                      ),
-                      initiallyExpanded: isExpanded,
-                      onExpansionChanged: (expanded) {
-                        if (expanded) {
-                          controller.expandedIndex.value = index;
-                        } else {
-                          controller.expandedIndex.value = -1;
-                        }
-                      },
-                      children: (service['features'] as List).map((feature) {
-                        return Container(
-                          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          padding: EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                feature['feature'] as String,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(Icons.attach_money, size: 16, color: Colors.green),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Fees: ${feature['fees']}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(Icons.access_time, size: 16, color: Colors.orange),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Time: ${feature['time']}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.orange,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
                     ),
-                  );
-                });
-              },
+                  ),
+                  // SizedBox(width: scale.getScaledWidth(12)),
+                  // AnimatedContainer(
+                  //   duration: Duration(milliseconds: 300),
+                  //   width: scale.getScaledWidth(40),
+                  //   height: scale.getScaledHeight(40),
+                  //   decoration: BoxDecoration(
+                  //     color: isExpanded
+                  //         ? ColorConstants.primaryColor.withOpacity(0.2)
+                  //         : Colors.grey[100],
+                  //     shape: BoxShape.circle,
+                  //   ),
+                  //   child: Center(
+                  //     child: Image.asset(
+                  //       ImageConstant.image,
+                  //       width: scale.getScaledWidth(24),
+                  //       color: isExpanded
+                  //           ? ColorConstants.primaryColor
+                  //           : Colors.grey[600],
+                  //     ),
+                  //   ),
+                  // ),
+                  SizedBox(width: scale.getScaledWidth(12)),
+                  Expanded(
+                    child: Text(
+                      service['title']! as String,
+                      style: AppStyle.textStylepoppins600black16.copyWith(
+                        color: isExpanded ? ColorConstants.primaryColor : Colors.black,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              trailing: AnimatedRotation(
+                turns: isExpanded ? 0.5 : 0,
+                duration: Duration(milliseconds: 300),
+                child: Icon(
+                  Icons.keyboard_arrow_down,
+                  color: isExpanded ? ColorConstants.primaryColor : Colors.grey[600],
+                ),
+              ),
+              children: [
+                Padding(
+                  padding: scale.getPadding(horizontal: 16, bottom: 16),
+                  child: Column(
+                    children: (service['features'] as List<Map<String, String>>)
+                        .map((feature) => _buildFeatureItem(scale, feature))
+                        .toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildFeatureItem(ScalingUtility scale, Map<String, String> feature) {
+    return Padding(
+      padding: scale.getPadding(vertical: 8),
+      child: Container(
+        width: double.infinity,
+        padding: scale.getPadding(all: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: ColorConstants.primaryColor,
+                  size: 20,
+                ),
+                SizedBox(width: scale.getScaledWidth(8)),
+                Expanded(
+                  child: Text(
+                    feature['feature']!,
+                    style: AppStyle.textStylepoppins500black14,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: scale.getScaledHeight(12)),
+            Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: _buildDetailChip(
+                    icon: Icons.currency_rupee,
+                    text: feature['fees']!,
+                    color: ColorConstants.primaryColor.withOpacity(0.1),
+                  ),
+                ),
+                SizedBox(width: scale.getScaledWidth(8)),
+                Expanded(
+                  flex: 1,
+                  child: _buildDetailChip(
+                    icon: Icons.access_time,
+                    text: feature['time']!,
+                    color: ColorConstants.secondaryColor.withOpacity(0.1),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailChip({required IconData icon, required String text, required Color color}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: ColorConstants.primaryColor,
+          ),
+          SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              text,
+              style: AppStyle.textStylepoppins500black14.copyWith(
+                color: Colors.black87,
+              ),
             ),
           ),
         ],

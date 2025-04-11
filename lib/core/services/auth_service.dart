@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:probcell_solutions/core/services/shared_pref_service.dart';
+import 'package:probcell_solutions/routes/app_routes.dart';
 import 'api_client.dart';
 
 import 'package:flutter/material.dart';
@@ -56,7 +57,7 @@ class AuthService extends GetxService {
     Get.find<PrefUtils>().setAuthToken('');
     Get.find<PrefUtils>().setAuthPhoneNo('');
     Get.find<ApiClient>().removeAuthTokenInHeader();
-    // Get.offAllNamed(Routes.login);
+    Get.offAllNamed(Routes.login);
   }
 
 

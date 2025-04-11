@@ -23,7 +23,7 @@ class LoginScreen extends GetView<LoginController> {
         if (controller.currentScreen.value == 0) {
           return Future.value(true);
         } else {
-          controller.changeScreen(controller.currentScreen.value - 1);
+          controller.changeScreen(0);
           return Future.value(false);
         }
       },
@@ -127,6 +127,8 @@ class LoginScreen extends GetView<LoginController> {
               return buildOtpField(scale);
             case 2:
               return buildPasswordField(scale);
+            case 3:
+              return buildRegisterField(scale);
             default:
               return buildLoginField(scale);
           }
@@ -160,7 +162,9 @@ class LoginScreen extends GetView<LoginController> {
           textCapitalization: false,
         ),
         SizedBox(height: scale.getScaledHeight(20)),
-        CustomTextButton(buttonText: 'Verify', onTap: () => controller.changeScreen(1))
+        CustomTextButton(
+          showLoader: controller.loginStatus.value.isLoading,
+          buttonText: 'Verify', onTap: () => controller.checkUserLogin(scale)),
       ],
     );
   }
@@ -188,6 +192,7 @@ class LoginScreen extends GetView<LoginController> {
             hintText: 'Password',
             textEditingController: controller.passwordController,
             textCapitalization: false,
+            textInputType: TextInputType.visiblePassword,
             obsecureText: !controller.obscureText.value,
             suffixIcon: IconButton(
               icon: Icon(controller.obscureText.value ? Icons.visibility : Icons.visibility_off),
@@ -197,9 +202,71 @@ class LoginScreen extends GetView<LoginController> {
         ),
         SizedBox(height: scale.getScaledHeight(20)),
         CustomTextButton(
+          showLoader: controller.loginStatus.value.isLoading,
           buttonText: 'Login',
           onTap: () {
-            Get.toNamed(Routes.home);
+           controller.loginUser(scale);
+          },
+        )
+      ],
+    );
+  }
+
+  Widget buildRegisterField(ScalingUtility scale) {
+    return Column(
+      children: [
+        SizedBox(height: scale.getScaledHeight(10)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            'Welcome to ProbCell Solutions',
+            style: AppStyle.textStylepoppins600black20,
+            textAlign: TextAlign.center,
+          ),
+        ),
+        Text(
+          'Please enter your number and password to proceed',
+          style: AppStyle.textStylepoppins500grey12,
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: scale.getScaledHeight(30)),
+        CustomTextField(
+            hintText: 'Name',
+            textEditingController: controller.nameController,
+          ),
+        SizedBox(height: scale.getScaledHeight(10)),
+        CustomTextField(
+          textInputType: TextInputType.phone,
+            hintText: 'Phone number',
+            textEditingController: controller.phoneController,
+            textCapitalization: false,
+            onChangeCallback: (value){
+             if (value?.length == 10) {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                  }
+                },
+                inputFormatters: [LengthLimitingTextInputFormatter(10)],
+          ),
+          SizedBox(height: scale.getScaledHeight(10)),
+        Obx(
+          () => CustomTextField(
+            hintText: 'Password',
+            textInputType: TextInputType.visiblePassword,
+            textEditingController: controller.passwordController,
+            textCapitalization: false,
+            obsecureText: !controller.obscureText.value,
+            suffixIcon: IconButton(
+              icon: Icon(controller.obscureText.value ? Icons.visibility : Icons.visibility_off),
+              onPressed: () => controller.toggleObscureText(),
+            ),
+          ),
+        ),
+        SizedBox(height: scale.getScaledHeight(20)),
+        CustomTextButton(
+          showLoader: controller.loginStatus.value.isLoading,
+          buttonText: 'Save',
+          onTap: () {
+           controller.addUsers(scale);
           },
         )
       ],
@@ -227,9 +294,11 @@ class LoginScreen extends GetView<LoginController> {
         CustomPinputField(textEditingController: controller.otpController),
         SizedBox(height: scale.getScaledHeight(20)),
         CustomTextButton(
+          showLoader: controller.loginStatus.value.isLoading,
           buttonText: 'Verify',
           onTap: () {
-            controller.changeScreen(2);
+            // controller.changeScreen(2);
+            controller.verifyOtp(scale);
           },
         )
       ],

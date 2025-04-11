@@ -1,173 +1,908 @@
+import 'dart:io';
 import 'dart:math';
-
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:lottie/lottie.dart';
+import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:probcell_solutions/core/constants/color_constant.dart';
 import 'package:probcell_solutions/core/constants/image_constant.dart';
 import 'package:probcell_solutions/core/theme/app_style.dart';
 import 'package:probcell_solutions/core/utils/scaling_utils.dart';
 import 'package:probcell_solutions/presentation/chats/chat_controller.dart';
-import 'package:probcell_solutions/presentation/widgets/custom_text_button.dart';
+import 'package:probcell_solutions/presentation/chats/models/user_message_model.dart';
+import 'package:probcell_solutions/presentation/widgets/customSnackBar.dart';
 
 class ChatScreen extends GetView<ChatController> {
-  const ChatScreen({Key? key}) : super(key: key);
+  final ScrollController _scrollController = ScrollController();
+  final _focusNode = FocusNode();
 
   @override
   Widget build(BuildContext context) {
     ScalingUtility scale = ScalingUtility(context: context)..setCurrentDeviceSize();
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
 
-    return Padding(
-      padding: scale.getPadding(horizontal: 20, vertical: 10),
-      child: Column(
-        children: [
-          AppBar(
-            title: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                'PROBECELL COMPASS',
-                style: AppStyle.textStylepoppins600blackLight20,
+    return WillPopScope(
+      onWillPop: () async {
+        if (controller.currentScreen.value == 1) {
+          controller.currentScreen.value = 0;
+          return false;
+        }
+        if (Get.arguments != null) {
+          print('refresh is called');
+          Get.back(result: {'refresh': true});
+        }
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: ColorConstants.white,
+        body: SafeArea(
+          // Added SafeArea to prevent status bar cutoff
+          child: Obx(() {
+            // Dynamic theme colors based on mode
+            final primaryColor =
+                controller.currentScreen.value == 0 ? ColorConstants.primaryColor : Color(0xFF6E48AA);
+            final secondaryColor =
+                controller.currentScreen.value == 0 ? ColorConstants.secondaryColor : Color(0xFF9D50BB);
+
+            return AnimatedContainer(
+              duration: Duration(milliseconds: 500),
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.topLeft,
+                  radius: 1.5,
+                  colors: [
+                    primaryColor.withOpacity(0.05),
+                    Colors.transparent,
+                  ],
+                ),
               ),
-            ),
-            leadingWidth: scale.getScaledWidth(60),
-            leading: Image.asset(ImageConstant.logo),
-            backgroundColor: ColorConstants.white,
-          ),
-          Expanded(
-            child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Chat Messages
-                  Obx(
-                    () => Visibility(
-                      visible: !controller.isSendButtonVisible.value,
-                      child: Column(
-                        children: [
-                          SizedBox(height: scale.getScaledHeight(60)),
-                          SizedBox(
-                            height: scale.getScaledHeight(140),
-                            width: scale.getScaledWidth(140),
-                            child: Image.asset(ImageConstant.robot),
-                          ),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text('Hi, Shubham!', style: AppStyle.textStylepoppins600black20),
-                          ),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text('Am Ready For Help You', style: AppStyle.textStylepoppins600black20),
-                          ),
-                          SizedBox(height: scale.getScaledHeight(8)),
-                          Text(
-                            'Ask me anything you want to research about your doubts',
-                            style: AppStyle.textStylepoppins400navyBlueDark14,
-                            textAlign: TextAlign.center,
-                          ),
+                  // App Bar with mode switcher
+                  _buildAppBar(scale, primaryColor, secondaryColor),
+
+                  // Chat area
+                  Expanded(
+                    child: LiquidPullToRefresh(
+                      onRefresh: () => controller.getMessages(),
+                      color: primaryColor,
+                      child: _buildChatContent(scale, bottomPadding, primaryColor, secondaryColor),
+                    ),
+                  ),
+
+                  // Input area
+                  _buildInputArea(scale, bottomPadding, primaryColor),
+                ],
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppBar(ScalingUtility scale, Color primaryColor, Color secondaryColor) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [primaryColor, secondaryColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Status bar spacer
+          SizedBox(height: MediaQuery.of(Get.context!).padding.top),
+
+          // Main AppBar content
+          Container(
+            height: kToolbarHeight,
+            child: Row(
+              children: [
+                // Back button with animation
+                IconButton(
+                  icon: AnimatedSwitcher(
+                    duration: Duration(milliseconds: 300),
+                    child: controller.currentScreen.value == 0
+                        ? Icon(Icons.arrow_back, key: ValueKey('back'), color: Colors.white)
+                        : Icon(Icons.close, key: ValueKey('close'), color: Colors.white),
+                  ),
+                  onPressed: () {
+                    if (controller.currentScreen.value == 1) {
+                      controller.currentScreen.value = 0;
+                    } else {
+                      Get.back();
+                    }
+                  },
+                ),
+
+                // Title with animated transition
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: Duration(milliseconds: 400),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return ScaleTransition(
+                        scale: animation,
+                        child: FadeTransition(
+                          opacity: animation,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        key: ValueKey(controller.currentScreen.value),
+                        controller.currentScreen.value == 0 ? 'PROBECELL AI ASSISTANT' : 'LIVE EXPERT CHAT',
+                        style: AppStyle.textStylepoppins600blackLight20.copyWith(
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: Offset(1, 1),
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Info button with pulse animation
+                ScaleTransition(
+                  scale: Tween(begin: 0.9, end: 1.0).animate(
+                    CurvedAnimation(
+                      parent: controller.animationController,
+                      curve: Curves.easeInOut,
+                    ),
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.info_outline, color: Colors.white),
+                    onPressed: _showChatModeInfo,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Mode switcher with animated underline
+          Container(
+            height: 40,
+            margin: EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Stack(
+              children: [
+                // Animated underline
+                AnimatedPositioned(
+                  duration: Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  left: controller.currentScreen.value == 0 ? 0 : MediaQuery.of(Get.context!).size.width / 2,
+                  child: Container(
+                    width: MediaQuery.of(Get.context!).size.width / 2,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.4),
+                          Colors.white.withOpacity(0.2),
                         ],
                       ),
                     ),
                   ),
-                  ListView(
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    children: [
-                      // Add your chat messages here
-                    ],
+                ),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => controller.currentScreen.value = 0,
+                        child: Center(
+                          child: Text(
+                            'AI Assistant',
+                            style: TextStyle(
+                              color: controller.currentScreen.value == 0
+                                  ? Colors.white
+                                  : Colors.white.withOpacity(0.7),
+                              fontWeight: FontWeight.w500,
+                              shadows: controller.currentScreen.value == 0
+                                  ? [
+                                      Shadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 4,
+                                        offset: Offset(1, 1),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => controller.currentScreen.value = 1,
+                        child: Center(
+                          child: Text(
+                            'Live Expert',
+                            style: TextStyle(
+                              color: controller.currentScreen.value == 1
+                                  ? Colors.white
+                                  : Colors.white.withOpacity(0.7),
+                              fontWeight: FontWeight.w500,
+                              shadows: controller.currentScreen.value == 1
+                                  ? [
+                                      Shadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 4,
+                                        offset: Offset(1, 1),
+                                      )
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Animated divider
+          AnimatedContainer(
+            duration: Duration(milliseconds: 500),
+            height: 2,
+            margin: EdgeInsets.only(bottom: 5),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  Colors.white.withOpacity(0.5),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatContent(
+      ScalingUtility scale, double bottomPadding, Color primaryColor, Color secondaryColor) {
+    return Obx(() {
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(Get.context!).size.height - 200, // Ensure minimum height
+        ),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          reverse: true,
+          physics: ClampingScrollPhysics(), // Changed from BouncingScrollPhysics for more consistent behavior
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: bottomPadding > 0 ? 100 : 20, // Increased bottom padding
+              top: 16,
+            ),
+            child: controller.currentScreen.value == 0
+                ? _buildAiChat(scale, primaryColor)
+                : _buildExpertChat(scale, primaryColor, secondaryColor),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildAiChat(ScalingUtility scale, Color primaryColor) {
+    return Obx(() {
+      if (controller.aiChatModelStatus.value.isLoading) {
+        return _buildLoadingIndicator(primaryColor);
+      }
+
+      if (controller.aiChatModel?.message?.isEmpty ?? true) {
+        return _buildEmptyAiState(scale, primaryColor);
+      }
+
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildAiMessageBubble(
+            message: controller.aiChatModel?.data?.aiResponse ?? '',
+            time: DateTime.now().toString(),
+            primaryColor: primaryColor,
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _buildExpertChat(ScalingUtility scale, Color primaryColor, Color secondaryColor) {
+    return Obx(() {
+      if (controller.userMessageModelStatus.value.isLoading) {
+        return _buildLoadingIndicator(primaryColor);
+      }
+
+      if (controller.userMessageModel?.messages?.isEmpty ?? true) {
+        return _buildEmptyExpertState(scale, primaryColor);
+      }
+
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var message in controller.userMessageModel!.messages!.reversed)
+            _buildMessageBubble(
+              message: message,
+              isAi: message.sentByUser == 0, // This should match your data model
+              primaryColor: primaryColor,
+              secondaryColor: secondaryColor,
+            ),
+        ],
+      );
+    });
+  }
+
+  Widget _buildMessageBubble({
+    required Messages message,
+    required bool isAi,
+    required Color primaryColor,
+    required Color secondaryColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: isAi ? MainAxisAlignment.start : MainAxisAlignment.end,
+        children: [
+          if (isAi) ...[
+            CircleAvatar(
+              backgroundColor: primaryColor.withOpacity(0.2),
+              child: Icon(
+                isAi ? Icons.auto_awesome : Icons.person,
+                color: primaryColor,
+              ),
+            ),
+            SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(Get.context!).size.width * 0.8,
+              ),
+              decoration: BoxDecoration(
+                gradient: isAi
+                    ? LinearGradient(
+                        colors: [Color(0xFFF5F5F5), Color(0xFFEAEAEA)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : LinearGradient(
+                        colors: [primaryColor, secondaryColor],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(isAi ? 0 : 12),
+                  topRight: Radius.circular(isAi ? 12 : 0),
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 6,
+                    offset: Offset(0, 3),
                   ),
-                  // Probcell Compass Suggestion
-                  Obx(()=> Visibility(
-                      visible: !controller.isSendButtonVisible.value,
-                      child: buildAiSuggestions(scale)),
-                  ),
-                  // Ask Expert
-                  Obx(
-                    () => Visibility(
-                      visible: controller.isSendButtonVisible.value,
-                      child: buildAskExpert(scale),
+                ],
+              ),
+              padding: EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (message.message != null)
+                    Text(
+                      message.message!,
+                      style: TextStyle(
+                        color: isAi ? Colors.black : Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                  if (message.files != null) _buildFilePreview(message, isAi),
+                  SizedBox(height: 4),
+                  Text(
+                    _formatTime(message.createdAt ?? ''),
+                    style: TextStyle(
+                      color: isAi ? Colors.grey[600] : Colors.white70,
+                      fontSize: 10,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: Row(
-              children: [
-                 
-              AnimatedBuilder(
-  animation: controller.circleAvatarGradientController,
-  builder: (context, child) {
-    return Obx(() => Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 44, // Slightly larger size for the border effect
-              height: 44, // Slightly larger size for the border effect
+          if (!isAi) SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiMessageBubble({
+    required String message,
+    required String time,
+    required Color primaryColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            backgroundColor: primaryColor.withOpacity(0.2),
+            child: Icon(Icons.auto_awesome, color: primaryColor),
+          ),
+          SizedBox(width: 8),
+          Flexible(
+            child: Container(
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: controller.isGradientActive.value
-                    ? SweepGradient(
-                        colors: [
-                          Colors.purple,
-                          ColorConstants.secondaryColor,
-                          Colors.blue,
-                        ],
-                        stops: [0.0, 0.5, 1.0],
-                        transform: GradientRotation(
-                          controller.circleAvatarGradientController.value * 2 * pi,
+                gradient: LinearGradient(
+                  colors: [Color(0xFFF5F5F5), Color(0xFFEAEAEA)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(0),
+                  topRight: Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 6,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              padding: EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message,
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    _formatTime(time),
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilePreview(Messages message, bool isAi) {
+    final isImage = message.fileUrl?.endsWith('.png') == true ||
+        message.fileUrl?.endsWith('.jpg') == true ||
+        message.fileUrl?.endsWith('.jpeg') == true;
+
+    return GestureDetector(
+      onTap: () => _showFilePreview(message.fileUrl!, isImage),
+      child: Container(
+        margin: EdgeInsets.only(top: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isAi ? Colors.grey[300]! : Colors.white.withOpacity(0.3)),
+        ),
+        child: isImage
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  message.fileUrl!,
+                  width: 150,
+                  height: 150,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      width: 150,
+                      height: 150,
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              : null,
                         ),
-                      )
-                    : null, // No gradient when inactive
+                      ),
+                    );
+                  },
+                ),
+              )
+            : Padding(
+                padding: EdgeInsets.all(8),
+                child: Row(
+                  children: [
+                    Icon(Icons.insert_drive_file, size: 24, color: isAi ? Colors.grey[600] : Colors.white),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        message.fileUrl!.split('/').last,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isAi ? Colors.black : Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildInputArea(ScalingUtility scale, double bottomPadding, Color primaryColor) {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: max(bottomPadding, 10),
+        left: 16,
+        right: 16,
+        top: 8,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Obx(() {
+        if (controller.selectedFile.value != null) {
+          return Column(
+            children: [
+              _buildFileAttachment(scale, primaryColor),
+              SizedBox(height: 8),
+              _buildTextInput(scale, primaryColor),
+            ],
+          );
+        }
+        return _buildTextInput(scale, primaryColor);
+      }),
+    );
+  }
+
+  Widget _buildTextInput(ScalingUtility scale, Color primaryColor) {
+    return Row(
+      children: [
+        // Attachment button
+        InkWell(
+          onTap: controller.pickFile,
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  primaryColor,
+                  primaryColor.withOpacity(0.8),
+                ],
               ),
             ),
-            Container(
-              width: 40, // Adjust size as needed
-              height: 40, // Adjust size as needed
+            child: Icon(Icons.attach_file, color: Colors.white),
+          ),
+        ),
+
+        SizedBox(width: 8),
+
+        // Text input
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(20),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: controller.chatTextController,
+              focusNode: _focusNode,
+              onChanged: controller.onTextChanged,
+              decoration: InputDecoration(
+                hintText:
+                    controller.currentScreen.value == 0 ? 'Ask AI anything...' : 'Message the expert...',
+                border: InputBorder.none,
+              ),
+              maxLines: null,
+            ),
+          ),
+        ),
+
+        SizedBox(width: 8),
+
+        // Send button
+        Obx(() {
+          if (controller.sendMessageStatus.value.isLoading) {
+            return Container(
+              width: 40,
+              height: 40,
+              padding: EdgeInsets.all(8),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: primaryColor,
+              ),
+            );
+          }
+
+          if (controller.isSendButtonVisible.value || controller.selectedFile.value != null) {
+            return InkWell(
+              onTap: () {
+                if (controller.chatTextController.text.isNotEmpty || controller.selectedFile.value != null) {
+                  if (controller.currentScreen.value == 0) {
+                    controller.newSearchRequest();
+                  } else {
+                    controller.sendMessage();
+                  }
+                  _scrollToBottom();
+                } else {
+                  showErrorMessageSnackBar(scale, 'Please enter a message');
+                }
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      primaryColor,
+                      primaryColor.withOpacity(0.8),
+                    ],
+                  ),
+                ),
+                child: Icon(Icons.send, color: Colors.white),
+              ),
+            );
+          }
+
+          return InkWell(
+            onTap: controller.onStarClicked,
+            child: Container(
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: ColorConstants.primaryColor, // Solid color
+                color: Colors.grey[200],
               ),
-              child: IconButton(
-                icon: const Icon(
-                  Icons.add,
-                  color: Colors.white,
+              child: Icon(Icons.auto_awesome, color: Colors.grey[600]),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildFileAttachment(ScalingUtility scale, Color primaryColor) {
+    return Container(
+      padding: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          if (controller.selectedFileName.value.endsWith('.png') ||
+              controller.selectedFileName.value.endsWith('.jpg') ||
+              controller.selectedFileName.value.endsWith('.jpeg'))
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(
+                controller.selectedFile.value!,
+                width: 50,
+                height: 50,
+                fit: BoxFit.cover,
+              ),
+            )
+          else
+            Icon(Icons.insert_drive_file, size: 40),
+          SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  controller.selectedFileName.value,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.w500),
                 ),
-                onPressed: () {},
+                SizedBox(height: 4),
+                LinearProgressIndicator(
+                  value: 0,
+                  backgroundColor: Colors.grey[300],
+                  color: primaryColor,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close),
+            onPressed: () {
+              controller.selectedFile.value = null;
+              controller.selectedFileName.value = '';
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyAiState(ScalingUtility scale, Color primaryColor) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        children: [
+          SizedBox(height: scale.getScaledHeight(40)),
+          Center(
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    primaryColor.withOpacity(0.2),
+                    primaryColor.withOpacity(0.1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.auto_awesome,
+                  size: 60,
+                  color: primaryColor,
+                ),
               ),
             ),
-          ],
-        ));
-  },
-),
-                SizedBox(width: 10),
-                Expanded(
-  child: TextField(
-    controller: controller.chatTextController,
-    decoration: InputDecoration(
-      hintText: 'Say something...',
-      border: InputBorder.none,
-    ),
-    onChanged: controller.onTextChanged,
-    maxLines: null, // Allow the TextField to expand vertically
-    minLines: 1,   // Start with a single line
-  ),
-),
-                RotationTransition(
-                  turns: controller.animationController,
-                  child: SvgPicture.asset(SvgConstant.star),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Hi there!',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: primaryColor,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'I\'m your AI research assistant. Ask me anything about your research topics and I\'ll help you find the best resources and suggestions.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 24),
+          _buildAiSuggestions(scale, primaryColor),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyExpertState(ScalingUtility scale, Color primaryColor) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        children: [
+          SizedBox(height: scale.getScaledHeight(40)),
+          Center(
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    primaryColor.withOpacity(0.2),
+                    primaryColor.withOpacity(0.1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                Obx(() => controller.isSendButtonVisible.value
-                    ? IconButton(
-                        icon: Icon(Icons.send),
-                        onPressed: () {
-                          // Handle send action
-                        },
-                      )
-                    : Container()),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.person,
+                  size: 60,
+                  color: primaryColor,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Connect with an Expert',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: primaryColor,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Our subject matter experts are ready to help you with your research questions. Start a conversation and get personalized guidance.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 24),
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.lightbulb_outline, color: primaryColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Quick Tips',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                _buildTipItem(
+                  icon: Icons.description,
+                  title: 'Share your research documents',
+                  subtitle: 'Upload PDFs or images for expert review',
+                ),
+                _buildTipItem(
+                  icon: Icons.schedule,
+                  title: 'Fast responses',
+                  subtitle: 'Our experts typically reply within 1 hour',
+                ),
+                _buildTipItem(
+                  icon: Icons.verified,
+                  title: 'Verified experts',
+                  subtitle: 'All specialists are vetted professionals',
+                ),
               ],
             ),
           ),
@@ -176,182 +911,274 @@ class ChatScreen extends GetView<ChatController> {
     );
   }
 
-  Widget buildAiSuggestions(ScalingUtility scale) {
+  Widget _buildTipItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
     return Padding(
-      padding: scale.getPadding(bottom: 10),
-      child: Obx(() {
-        return Container(
-          width: scale.fullWidth,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.transparent,
-              width: 2,
-            ),
-            gradient: SweepGradient(
-              colors: [
-                ColorConstants.primaryColor,
-                ColorConstants.primaryColor.withOpacity(0.5),
-                Colors.blue,
-              ],
-              stops: [0.0, 0.5, 1.0],
-              startAngle: 0,
-              endAngle: 2 * pi,
-              transform: GradientRotation(controller.rotationValue.value), // Use rotationValue
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: controller.getShadowColor().withOpacity(0.5), // Dynamic shadow color
-                blurRadius: 10,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          // padding: scale.getPadding(all: 15),
-          child: Container(
-             padding: scale.getPadding(all: 15),
-            decoration: BoxDecoration(
-              color: ColorConstants.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[600]),
+          SizedBox(width: 12),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: scale.getScaledHeight(5)),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        ColorConstants.primaryColor.withOpacity(0.1),
-                        ColorConstants.primaryColor.withOpacity(0.2),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      tileMode: TileMode.repeated,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  padding: scale.getPadding(all: 4),
-                  child: Row(
-                    children: [
-                      SizedBox(width: scale.getScaledWidth(10)),
-                      SizedBox(
-                        height: scale.getScaledHeight(15),
-                        width: scale.getScaledWidth(15),
-                        child: SvgPicture.asset(SvgConstant.star),
-                      ),
-                      SizedBox(width: scale.getScaledWidth(10)),
-                      Text(
-                        'Probcell Compass Suggestion',
-                        style: AppStyle.textStylepoppins600black12,
-                      ),
-                    ],
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(height: scale.getScaledHeight(8)),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        ColorConstants.primaryColor.withOpacity(0.1),
-                        ColorConstants.primaryColor.withOpacity(0.2),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      tileMode: TileMode.repeated,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  padding: scale.getPadding(all: 10),
-                  child: Row(
-                    children: [
-                      SizedBox(width: scale.getScaledWidth(10)),
-                      Expanded(
-                        child: Obx(()=> Text(
-                            controller.chatText.value,
-                            style: AppStyle.textStylepoppins500blackLight12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: scale.getScaledHeight(8)),
-                ElevatedButton(
-                  onPressed: () {
-                    controller.onUseText();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ColorConstants.primaryColor,
-                    padding: scale.getPadding(vertical: 8, horizontal: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    'Use this information',
-                    style: AppStyle.textStylepoppins600white14.copyWith(fontSize: 12),
+                SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
                   ),
                 ),
               ],
             ),
           ),
-        );
-      }),
+        ],
+      ),
     );
   }
 
-  Widget buildAskExpert(ScalingUtility scale) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Ask the expert', style: AppStyle.textStylepoppins600primary16),
-        Text('Lorem ipsum dolor sit amet, consectetur .', style: AppStyle.textStylepoppins500grey2Light12),
-        SizedBox(height: scale.getScaledHeight(8)),
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: ColorConstants.primaryBgColor),
+  Widget _buildAiSuggestions(ScalingUtility scale, Color primaryColor) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 4),
           ),
-          padding: scale.getPadding(all: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+        border: Border.all(
+          color: primaryColor.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
+              Icon(Icons.auto_awesome, color: primaryColor, size: 20),
+              SizedBox(width: 8),
               Text(
-                'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-                style: AppStyle.textStylepoppins500blackLight12,
-              ),
-              SizedBox(height: scale.getScaledHeight(20)),
-              ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: ColorConstants.primaryBgColor,
-                  elevation: 5,
-                  padding: scale.getPadding(vertical: 12, horizontal: 24),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
+                'AI Suggestions',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: primaryColor,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Try asking me about:',
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildSuggestionChip(
+                text: 'Research paper topics',
+                onTap: () => _setSuggestion('Suggest some research paper topics in AI'),
+                primaryColor: primaryColor,
+              ),
+              _buildSuggestionChip(
+                text: 'Literature review',
+                onTap: () => _setSuggestion('Help me with a literature review on machine learning'),
+                primaryColor: primaryColor,
+              ),
+              _buildSuggestionChip(
+                text: 'Methodology',
+                onTap: () => _setSuggestion('What methodology should I use for my study?'),
+                primaryColor: primaryColor,
+              ),
+              _buildSuggestionChip(
+                text: 'Data analysis',
+                onTap: () => _setSuggestion('How should I analyze my research data?'),
+                primaryColor: primaryColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestionChip({
+    required String text,
+    required VoidCallback onTap,
+    required Color primaryColor,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: primaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: primaryColor,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator(Color primaryColor) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: primaryColor,
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Loading conversation...',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFilePreview(String fileUrl, bool isImage) {
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isImage)
+              InteractiveViewer(
+                child: Image.network(
+                  fileUrl,
+                  fit: BoxFit.contain,
+                ),
+              )
+            else
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
                   children: [
+                    Icon(Icons.insert_drive_file, size: 60),
+                    SizedBox(height: 8),
                     Text(
-                      'Ask Now',
-                      style: AppStyle.textStylepoppins600white14,
-                    ),
-                    SizedBox(width: scale.getScaledWidth(10)),
-                    SvgPicture.asset(
-                      SvgConstant.btnArrow,
-                      color: Colors.white,
+                      fileUrl.split('/').last,
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => controller.downloadFile(fileUrl),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorConstants.primaryColor,
+              ),
+              child: Text('Download File'),
+            ),
+          ],
         ),
-        SizedBox(height: scale.getScaledHeight(15)),
-      ],
+      ),
     );
+  }
+
+  void _showChatModeInfo() {
+    Get.dialog(
+      AlertDialog(
+        title: Text(
+          controller.currentScreen.value == 0 ? 'AI Assistant Mode' : 'Live Expert Mode',
+          style: TextStyle(color: ColorConstants.primaryColor),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              controller.currentScreen.value == 0
+                  ? 'The AI Assistant can help with:'
+                  : 'Live Experts can help with:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            ...(controller.currentScreen.value == 0
+                ? [
+                    _buildInfoItem('• Quick research suggestions'),
+                    _buildInfoItem('• Literature review assistance'),
+                    _buildInfoItem('• Methodology recommendations'),
+                    _buildInfoItem('• 24/7 availability'),
+                  ]
+                : [
+                    _buildInfoItem('• In-depth research guidance'),
+                    _buildInfoItem('• Paper review and feedback'),
+                    _buildInfoItem('• Personalized recommendations'),
+                    _buildInfoItem('• Typically replies within 1 hour'),
+                  ]),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Text(text),
+    );
+  }
+
+  void _setSuggestion(String text) {
+    controller.chatTextController.text = text;
+    controller.onTextChanged(text);
+    _focusNode.requestFocus();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.minScrollExtent,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  String _formatTime(String dateTime) {
+    final DateTime parsedDate = DateTime.parse(dateTime);
+    return '${parsedDate.hour}:${parsedDate.minute.toString().padLeft(2, '0')}';
   }
 }

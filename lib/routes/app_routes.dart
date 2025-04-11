@@ -1,4 +1,6 @@
 import 'package:get/get.dart';
+import 'package:probcell_solutions/presentation/admin/admin_binding.dart';
+import 'package:probcell_solutions/presentation/admin/admin_screen.dart';
 import 'package:probcell_solutions/presentation/chats/chat_binding.dart';
 import 'package:probcell_solutions/presentation/chats/chat_screen.dart';
 import 'package:probcell_solutions/presentation/home/home_binding.dart';
@@ -14,6 +16,7 @@ class Routes {
   static const login = '/login';
   static const home = '/home';
   static const chat = '/chat';
+  static const admin = '/admin';
     }
 
 class RoutesPages {
@@ -37,8 +40,14 @@ class RoutesPages {
     ),
     GetPage(
       name: Routes.chat,
-      page: () => const ChatScreen(),
+      page: () => ChatScreen(),
       binding: ChatBinding(),
     ),
+    GetPage(
+      name: Routes.admin,
+      page: () => AdminScreen(),
+      binding: AdminBinding(),
+    ),
+
   ];
 }

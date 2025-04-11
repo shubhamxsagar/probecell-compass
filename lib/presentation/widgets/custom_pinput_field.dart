@@ -27,7 +27,7 @@ class CustomPinputField extends StatelessWidget {
     return Pinput(
       controller: textEditingController,
       focusNode: focusNode,
-      length: 6,
+      length: 4,
       defaultPinTheme: defaultPinTheme.copyWith(
         width: (scale.fullWidth - scale.getScaledWidth(50)) / 7,
         height: scale.getScaledHeight(50),

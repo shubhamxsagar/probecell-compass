@@ -4,6 +4,6 @@ import 'package:probcell_solutions/presentation/chats/chat_controller.dart';
 class ChatBinding extends Bindings {
   @override
   void dependencies() {
-    Get.put<ChatController>(ChatController());
+     Get.lazyPut<ChatController>(() => ChatController());
   }
 }

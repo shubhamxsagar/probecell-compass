@@ -8,6 +8,9 @@ class ColorConstants {
   static const primaryBgColor = Color(0xFFFF6B35);
   static const secondaryBgColor = Color(0xFFF0F7FF);
 
+  static const Color adminPrimaryColor = Color(0xFF6A3093); 
+  static const Color adminSecondaryColor = Color(0xFFA044FF); 
+
 
   static const white = Color(0xFFFFFFFF);
   static const whiteLight = Color(0x99FFFFFF);
